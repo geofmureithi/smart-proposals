@@ -108,3 +108,29 @@ fn only_admin_can_create_prds() {
     let (_, client, _) = prepare_env_and_client();
     client.create_prd(&1);
 }
+
+#[test]
+fn voter_can_vote_prds() {
+    let (env, client, _) = prepare_env_and_client();
+    env.mock_all_auths();
+    
+    let mut voters = Vec::new(&env);
+    voters.push_back(Address::random(&env));
+    voters.push_back(Address::random(&env));
+    client.add_voters(&voters);
+
+    let prd_id = 12;
+
+    client.create_prd(&prd_id);
+    client.prd_vote(&prd_id);
+
+    let state = client.prd_status(&prd_id);
+
+    assert_eq!(
+        ProposalState {
+            status: Status::OpenVoting,
+            votes: 1,
+        },
+        state
+    );
+}

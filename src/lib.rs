@@ -104,6 +104,20 @@ impl ProposalContract {
             .get(id)
             .ok_or(Error::NotFound)??)
     }
+
+    pub fn prd_vote(env: Env, id: u64) -> Result<(), Error> {
+        let mut proposal_storage = env
+            .storage()
+            .get::<_, Map<u64, ProposalState>>(&DataKey::PRDStorage)
+            .ok_or(Error::KeyExpected)??;
+
+        let mut proposal_state = proposal_storage.get(id).ok_or(Error::NotFound)??;
+        proposal_state.votes += 1;
+        proposal_storage.set(id, proposal_state);
+
+        env.storage().set(&DataKey::PRDStorage, &proposal_storage);
+        Ok(())
+    }
 }
 
 #[contracttype]
