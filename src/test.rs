@@ -1,7 +1,7 @@
 #![cfg(test)]
 
 use crate::{ProposalContract, ProposalContractClient, ProposalState, Status};
-use soroban_sdk::{testutils::Address as _, vec, Address, Env, IntoVal, Symbol, Vec};
+use soroban_sdk::{testutils::Address as _, vec, Address, Env, IntoVal, Map, Symbol, Vec};
 
 #[test]
 fn voters_add_and_retrieve_works() {
@@ -97,6 +97,7 @@ fn prd_creation_and_query() {
         ProposalState {
             status: Status::OpenVoting,
             votes: 0,
+            voters: Map::<Address, bool>::new(&env)
         },
         state
     );
@@ -113,7 +114,7 @@ fn only_admin_can_create_prds() {
 fn voter_can_vote_prds() {
     let (env, client, _) = prepare_env_and_client();
     env.mock_all_auths();
-    
+
     let mut voters = Vec::new(&env);
     voters.push_back(Address::random(&env));
     voters.push_back(Address::random(&env));
@@ -122,15 +123,37 @@ fn voter_can_vote_prds() {
     let prd_id = 12;
 
     client.create_prd(&prd_id);
-    client.prd_vote(&prd_id);
+    client.prd_vote(&client.address, &prd_id);
 
     let state = client.prd_status(&prd_id);
+
+    let mut expected_voters = Map::<Address, bool>::new(&env);
+    expected_voters.set(client.address, true);
 
     assert_eq!(
         ProposalState {
             status: Status::OpenVoting,
             votes: 1,
+            voters: expected_voters
         },
         state
     );
+}
+
+#[test]
+#[should_panic(expected = "ContractError(4)")]
+fn voter_cannot_vote_a_prd_twice() {
+    let (env, client, _) = prepare_env_and_client();
+    env.mock_all_auths();
+
+    let mut voters = Vec::new(&env);
+    voters.push_back(Address::random(&env));
+    voters.push_back(Address::random(&env));
+    client.add_voters(&voters);
+
+    let prd_id = 12;
+
+    client.create_prd(&prd_id);
+    client.prd_vote(&client.address, &prd_id);
+    client.prd_vote(&client.address, &prd_id); // Double voting here. Expected panic.
 }

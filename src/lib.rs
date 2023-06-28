@@ -11,6 +11,7 @@ pub enum Error {
     Conversion = 1,
     KeyExpected = 2,
     NotFound = 3,
+    Conflict = 4,
 }
 
 impl From<ConversionError> for Error {
@@ -46,7 +47,7 @@ impl ProposalContract {
             .set(&DataKey::VoterList, &Vec::<Address>::new(&env));
         env.storage().set(
             &DataKey::PRDStorage,
-            &Map::<u64, (Status, i64, Vec<Address>)>::new(&env),
+            &Map::<u64, (Status, i64, Map<Address, bool>)>::new(&env),
         )
     }
 
@@ -89,6 +90,7 @@ impl ProposalContract {
             ProposalState {
                 status: Status::OpenVoting,
                 votes: 0,
+                voters: Map::<Address, bool>::new(&env),
             },
         );
 
@@ -105,14 +107,21 @@ impl ProposalContract {
             .ok_or(Error::NotFound)??)
     }
 
-    pub fn prd_vote(env: Env, id: u64) -> Result<(), Error> {
+    pub fn prd_vote(env: Env, voter: Address, id: u64) -> Result<(), Error> {
+        voter.require_auth();
         let mut proposal_storage = env
             .storage()
             .get::<_, Map<u64, ProposalState>>(&DataKey::PRDStorage)
             .ok_or(Error::KeyExpected)??;
 
         let mut proposal_state = proposal_storage.get(id).ok_or(Error::NotFound)??;
+
+        if proposal_state.voters.get(voter.clone()).is_some() {
+            return Err(Error::Conflict);
+        }
+
         proposal_state.votes += 1;
+        proposal_state.voters.set(voter, true);
         proposal_storage.set(id, proposal_state);
 
         env.storage().set(&DataKey::PRDStorage, &proposal_storage);
@@ -121,10 +130,11 @@ impl ProposalContract {
 }
 
 #[contracttype]
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ProposalState {
     status: Status,
     votes: i64,
+    voters: Map<Address, bool>,
 }
 
 #[cfg(test)]
