@@ -1,7 +1,7 @@
 #![cfg(test)]
 
 use crate::{ProposalContract, ProposalContractClient, ProposalState, Status};
-use soroban_sdk::{testutils::Address as _, vec, Address, Env, IntoVal, Map, Symbol, Vec};
+use soroban_sdk::{testutils::Address as _, Address, Env, IntoVal, Map, Symbol};
 
 #[test]
 fn voters_add_and_retrieve_works() {
@@ -9,17 +9,19 @@ fn voters_add_and_retrieve_works() {
 
     env.mock_all_auths();
 
-    let mut voters = Vec::new(&env);
-    voters.push_back(Address::random(&env));
-    voters.push_back(Address::random(&env));
+    let mut voters = Map::<Address, u32>::new(&env);
+    let voter_1 = Address::random(&env);
+    let voter_2 = Address::random(&env);
+    voters.set(voter_1.clone(), 1);
+    voters.set(voter_2, 1);
     client.add_voters(&voters);
 
     let voters_reg = client.get_voters();
 
     assert_eq!(2, voters_reg.len());
     assert_eq!(
-        voters.get(0).unwrap().unwrap(),
-        voters_reg.get(0).unwrap().unwrap()
+        voters.get(voter_1.clone()).unwrap().unwrap(),
+        voters_reg.get(voter_1.clone()).unwrap().unwrap()
     );
 }
 
@@ -38,9 +40,8 @@ fn prepare_env_and_client<'a>() -> (Env, ProposalContractClient<'a>, Address) {
 fn voter_list_no_admin_cant_vote() {
     let (env, client, _) = prepare_env_and_client();
 
-    let mut voters = Vec::new(&env);
-    voters.push_back(Address::random(&env));
-
+    let mut voters = Map::<Address, u32>::new(&env);
+    voters.set(Address::random(&env), 1);
     client.add_voters(&voters);
 }
 
@@ -50,9 +51,8 @@ fn ensure_admin_auth_is_checked_adding_voters() {
 
     env.mock_all_auths();
 
-    let voter = Address::random(&env);
-    let mut voters = Vec::new(&env);
-    voters.push_back(voter);
+    let mut voters = Map::<Address, u32>::new(&env);
+    voters.set(Address::random(&env), 1);
 
     client.add_voters(&voters);
 
@@ -73,9 +73,10 @@ fn prd_creation_and_query() {
 
     env.mock_all_auths();
 
-    let voter_1 = Address::random(&env);
-    let voter_2 = Address::random(&env);
-    let voters = vec![&env, voter_1, voter_2];
+    let mut voters = Map::<Address, u32>::new(&env);
+    voters.set(Address::random(&env), 1);
+    voters.set(Address::random(&env), 1);
+
     client.add_voters(&voters);
 
     let prd_id = 1001u64;
@@ -115,15 +116,14 @@ fn voter_can_vote_prds() {
     let (env, client, _) = prepare_env_and_client();
     env.mock_all_auths();
 
-    let mut voters = Vec::new(&env);
-    voters.push_back(Address::random(&env));
-    voters.push_back(Address::random(&env));
+    let mut voters = Map::<Address, u32>::new(&env);
+    voters.set(client.address.clone(), 2);
     client.add_voters(&voters);
 
     let prd_id = 12;
 
     client.create_prd(&prd_id);
-    client.prd_vote(&client.address, &prd_id);
+    client.prd_vote(&client.address, &prd_id, &2);
 
     let state = client.prd_status(&prd_id);
 
@@ -133,7 +133,7 @@ fn voter_can_vote_prds() {
     assert_eq!(
         ProposalState {
             status: Status::OpenVoting,
-            votes: 1,
+            votes: 2,
             voters: expected_voters
         },
         state
@@ -146,14 +146,45 @@ fn voter_cannot_vote_a_prd_twice() {
     let (env, client, _) = prepare_env_and_client();
     env.mock_all_auths();
 
-    let mut voters = Vec::new(&env);
-    voters.push_back(Address::random(&env));
-    voters.push_back(Address::random(&env));
+    let mut voters = Map::<Address, u32>::new(&env);
+    voters.set(client.address.clone(), 1);
     client.add_voters(&voters);
 
     let prd_id = 12;
 
     client.create_prd(&prd_id);
-    client.prd_vote(&client.address, &prd_id);
-    client.prd_vote(&client.address, &prd_id); // Double voting here. Expected panic.
+    client.prd_vote(&client.address, &prd_id, &1);
+    client.prd_vote(&client.address, &prd_id, &1); // Double voting here. Expected panic.
+}
+
+#[test]
+#[should_panic(expected = "ContractError(5)")]
+fn not_in_voter_list_address_cant_vote() {
+    let (env, client, _) = prepare_env_and_client();
+    env.mock_all_auths();
+
+    let mut voters = Map::<Address, u32>::new(&env);
+    voters.set(Address::random(&env), 1);
+    client.add_voters(&voters);
+
+    let prd_id = 12;
+
+    client.create_prd(&prd_id);
+    client.prd_vote(&client.address, &prd_id, &1);
+}
+
+#[test]
+#[should_panic(expected = "ContractError(6)")]
+fn voter_cannot_vote_more_than_its_total_weight() {
+    let (env, client, _) = prepare_env_and_client();
+    env.mock_all_auths();
+
+    let mut voters = Map::<Address, u32>::new(&env);
+    voters.set(client.address.clone(), 2);
+    client.add_voters(&voters);
+
+    let prd_id = 12;
+
+    client.create_prd(&prd_id);
+    client.prd_vote(&client.address, &prd_id, &3); // Exceeding weight of 2 should panic.
 }

@@ -1,8 +1,6 @@
 #![no_std]
 
-use soroban_sdk::{
-    contracterror, contractimpl, contracttype, Address, ConversionError, Env, Map, Vec,
-};
+use soroban_sdk::{contracterror, contractimpl, contracttype, Address, ConversionError, Env, Map};
 
 #[contracterror]
 #[derive(Clone, Debug, Copy, Eq, PartialEq, PartialOrd, Ord)]
@@ -12,6 +10,8 @@ pub enum Error {
     KeyExpected = 2,
     NotFound = 3,
     Conflict = 4,
+    NotInVoterList = 5,
+    WeightExceeded = 6
 }
 
 impl From<ConversionError> for Error {
@@ -44,14 +44,14 @@ impl ProposalContract {
     pub fn init(env: Env, admin: Address) {
         env.storage().set(&DataKey::Admin, &admin);
         env.storage()
-            .set(&DataKey::VoterList, &Vec::<Address>::new(&env));
+            .set(&DataKey::VoterList, &Map::<Address, u32>::new(&env));
         env.storage().set(
             &DataKey::PRDStorage,
             &Map::<u64, (Status, i64, Map<Address, bool>)>::new(&env),
         )
     }
 
-    pub fn add_voters(env: Env, voters: Vec<Address>) -> Result<(), Error> {
+    pub fn add_voters(env: Env, voters: Map<Address, u32>) -> Result<(), Error> {
         env.storage()
             .get::<_, Address>(&DataKey::Admin)
             .ok_or(Error::KeyExpected)??
@@ -59,16 +59,19 @@ impl ProposalContract {
 
         let mut voter_list = env
             .storage()
-            .get::<_, Vec<Address>>(&DataKey::VoterList)
+            .get::<_, Map<Address, u32>>(&DataKey::VoterList)
             .ok_or(Error::KeyExpected)??;
 
-        voter_list.append(&voters);
+        for res in voters.iter() {
+            let (addr, weight) = res?;
+            voter_list.set(addr, weight);
+        }
 
         env.storage().set(&DataKey::VoterList, &voter_list);
         Ok(())
     }
 
-    pub fn get_voters(env: Env) -> Result<Vec<Address>, Error> {
+    pub fn get_voters(env: Env) -> Result<Map<Address, u32>, Error> {
         env.storage()
             .get(&DataKey::VoterList)
             .ok_or(Error::KeyExpected)??
@@ -107,8 +110,20 @@ impl ProposalContract {
             .ok_or(Error::NotFound)??)
     }
 
-    pub fn prd_vote(env: Env, voter: Address, id: u64) -> Result<(), Error> {
+    pub fn prd_vote(env: Env, voter: Address, id: u64, weight: i32) -> Result<(), Error> {
         voter.require_auth();
+
+        let voter_list = env
+            .storage()
+            .get::<_, Map<Address, u32>>(&DataKey::VoterList)
+            .ok_or(Error::KeyExpected)??;
+
+        let voter_weight = voter_list.get(voter.clone()).ok_or(Error::NotInVoterList)??;
+
+        if weight.abs() as u32 > voter_weight {
+            return Err(Error::WeightExceeded)
+        }
+
         let mut proposal_storage = env
             .storage()
             .get::<_, Map<u64, ProposalState>>(&DataKey::PRDStorage)
@@ -120,7 +135,11 @@ impl ProposalContract {
             return Err(Error::Conflict);
         }
 
-        proposal_state.votes += 1;
+        proposal_state.votes = proposal_state
+            .votes
+            .checked_add(weight as i64)
+            .expect("overflow");
+
         proposal_state.voters.set(voter, true);
         proposal_storage.set(id, proposal_state);
 
