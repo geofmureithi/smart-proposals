@@ -11,7 +11,7 @@ pub enum Error {
     NotFound = 3,
     Conflict = 4,
     NotInVoterList = 5,
-    WeightExceeded = 6
+    WeightExceeded = 6,
 }
 
 impl From<ConversionError> for Error {
@@ -85,12 +85,13 @@ impl ProposalContract {
 
         let mut storage = env
             .storage()
-            .get::<_, Map<u64, ProposalState>>(&DataKey::PRDStorage)
+            .get::<_, Map<u64, Proposal>>(&DataKey::PRDStorage)
             .ok_or(Error::KeyExpected)??;
 
         storage.set(
             id,
-            ProposalState {
+            Proposal {
+                id,
                 status: Status::OpenVoting,
                 votes: 0,
                 voters: Map::<Address, bool>::new(&env),
@@ -101,10 +102,10 @@ impl ProposalContract {
         Ok(())
     }
 
-    pub fn prd_status(env: Env, id: u64) -> Result<ProposalState, Error> {
+    pub fn prd_status(env: Env, id: u64) -> Result<Proposal, Error> {
         Ok(env
             .storage()
-            .get::<_, Map<u64, ProposalState>>(&DataKey::PRDStorage)
+            .get::<_, Map<u64, Proposal>>(&DataKey::PRDStorage)
             .ok_or(Error::KeyExpected)??
             .get(id)
             .ok_or(Error::NotFound)??)
@@ -118,15 +119,17 @@ impl ProposalContract {
             .get::<_, Map<Address, u32>>(&DataKey::VoterList)
             .ok_or(Error::KeyExpected)??;
 
-        let voter_weight = voter_list.get(voter.clone()).ok_or(Error::NotInVoterList)??;
+        let voter_weight = voter_list
+            .get(voter.clone())
+            .ok_or(Error::NotInVoterList)??;
 
         if weight.abs() as u32 > voter_weight {
-            return Err(Error::WeightExceeded)
+            return Err(Error::WeightExceeded);
         }
 
         let mut proposal_storage = env
             .storage()
-            .get::<_, Map<u64, ProposalState>>(&DataKey::PRDStorage)
+            .get::<_, Map<u64, Proposal>>(&DataKey::PRDStorage)
             .ok_or(Error::KeyExpected)??;
 
         let mut proposal_state = proposal_storage.get(id).ok_or(Error::NotFound)??;
@@ -150,7 +153,8 @@ impl ProposalContract {
 
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
-pub struct ProposalState {
+pub struct Proposal {
+    id: u64,
     status: Status,
     votes: i64,
     voters: Map<Address, bool>,

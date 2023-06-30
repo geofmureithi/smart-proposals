@@ -1,6 +1,6 @@
 #![cfg(test)]
 
-use crate::{ProposalContract, ProposalContractClient, ProposalState, Status};
+use crate::{Proposal, ProposalContract, ProposalContractClient, Status};
 use soroban_sdk::{testutils::Address as _, Address, Env, IntoVal, Map, Symbol};
 
 #[test]
@@ -79,8 +79,8 @@ fn prd_creation_and_query() {
 
     client.add_voters(&voters);
 
-    let prd_id = 1001u64;
-    client.create_prd(&prd_id);
+    let id = 1001u64;
+    client.create_prd(&id);
 
     assert_eq!(
         env.auths(),
@@ -92,10 +92,11 @@ fn prd_creation_and_query() {
         )]
     );
 
-    let state = client.prd_status(&prd_id);
+    let state = client.prd_status(&id);
 
     assert_eq!(
-        ProposalState {
+        Proposal {
+            id,
             status: Status::OpenVoting,
             votes: 0,
             voters: Map::<Address, bool>::new(&env)
@@ -120,18 +121,19 @@ fn voter_can_vote_prds() {
     voters.set(client.address.clone(), 2);
     client.add_voters(&voters);
 
-    let prd_id = 12;
+    let id = 12;
 
-    client.create_prd(&prd_id);
-    client.prd_vote(&client.address, &prd_id, &2);
+    client.create_prd(&id);
+    client.prd_vote(&client.address, &id, &2);
 
-    let state = client.prd_status(&prd_id);
+    let state = client.prd_status(&id);
 
     let mut expected_voters = Map::<Address, bool>::new(&env);
     expected_voters.set(client.address, true);
 
     assert_eq!(
-        ProposalState {
+        Proposal {
+            id,
             status: Status::OpenVoting,
             votes: 2,
             voters: expected_voters
