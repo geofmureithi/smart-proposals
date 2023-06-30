@@ -261,3 +261,14 @@ fn cannot_create_an_rfc_with_non_existing_parent_prd() {
     let id = 1001u64;
     client.create_rfc(&id, &1);
 }
+
+#[test]
+#[should_panic(expected = "ContractError(8)")]
+fn no_prd_proposals_cannot_be_parent() {
+    let (env, client, _) = setup_test();
+    env.mock_all_auths();
+
+    client.create_prd(&1);
+    client.create_rfc(&1, &2);
+    client.create_rfc(&2, &3); // Here we passed the id of an RFC, not a PRD. This should panic.
+}

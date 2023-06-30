@@ -13,6 +13,7 @@ pub enum Error {
     NotInVoterList = 5,
     WeightExceeded = 6,
     DuplicatedEntity = 7,
+    ParentNotPRD = 8,
 }
 
 impl From<ConversionError> for Error {
@@ -101,8 +102,11 @@ impl ProposalContract {
             return Err(Error::DuplicatedEntity);
         }
 
-        if parent != 0 && !storage.contains_key(parent) {
-            return Err(Error::NotFound);
+        if parent != 0 {
+            let parent = storage.get(parent).ok_or(Error::NotFound)??;
+            if parent.kind != ProposalKind::PRD {
+                return Err(Error::ParentNotPRD);
+            }
         }
 
         storage.set(
