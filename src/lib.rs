@@ -81,8 +81,12 @@ impl ProposalContract {
         Self::create_proposal(env, id, ProposalKind::PRD, 0)
     }
 
+    pub fn create_rfc(env: Env, prd_id: u64, id: u64) -> Result<(), Error> {
+        Self::create_proposal(env, id, ProposalKind::RFC, prd_id)
+    }
+
     fn create_proposal(env: Env, id: u64, kind: ProposalKind, parent: u64) -> Result<(), Error> {
-        env.storage()
+        env.storage()   
             .get::<_, Address>(&DataKey::Admin)
             .ok_or(Error::KeyExpected)??
             .require_auth();

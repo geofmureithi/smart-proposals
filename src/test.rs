@@ -194,3 +194,50 @@ fn voter_cannot_vote_more_than_its_total_weight() {
     client.create_prd(&prd_id);
     client.vote(&client.address, &prd_id, &3); // Exceeding weight of 2 should panic.
 }
+
+#[test]
+fn rfc_proposal_creation() {
+    let (env, client, admin) = prepare_env_and_client();
+    env.mock_all_auths();
+
+
+    let prd_id = 1001u64;
+    client.create_prd(&prd_id); // First we need a PRD.
+
+    let mut capture_auths = env.auths();
+    let rfc_id = 1002u64;
+
+    client.create_rfc(&prd_id, &rfc_id);
+    capture_auths.append(&mut env.auths());
+
+    let state = client.proposal(&rfc_id);
+    assert_eq!(
+        capture_auths,
+        [
+            (
+                admin.clone(),
+                client.address.clone(),
+                Symbol::new(&env, "create_prd"),
+                (1001u64,).into_val(&env)
+            ),
+            (
+                admin.clone(),
+                client.address.clone(),
+                Symbol::new(&env, "create_rfc"),
+                (1001u64, 1002u64).into_val(&env)
+            )
+        ]
+    );
+
+    assert_eq!(
+        Proposal {
+            id: rfc_id,
+            kind: crate::ProposalKind::RFC,
+            parent: prd_id,
+            status: Status::OpenVoting,
+            votes: 0,
+            voters: Map::<Address, bool>::new(&env)
+        },
+        state
+    );
+}
