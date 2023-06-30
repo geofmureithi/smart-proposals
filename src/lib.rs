@@ -101,6 +101,10 @@ impl ProposalContract {
             return Err(Error::DuplicatedEntity);
         }
 
+        if parent != 0 && !storage.contains_key(parent) {
+            return Err(Error::NotFound);
+        }
+
         storage.set(
             id,
             Proposal {

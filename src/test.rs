@@ -251,3 +251,13 @@ fn rfc_proposal_creation() {
         state
     );
 }
+
+#[test]
+#[should_panic(expected = "ContractError(3)")]
+fn cannot_create_an_rfc_with_non_existing_parent_prd() {
+    let (env, client, _) = setup_test();
+    env.mock_all_auths();
+
+    let id = 1001u64;
+    client.create_rfc(&id, &1);
+}
