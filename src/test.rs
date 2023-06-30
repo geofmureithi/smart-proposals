@@ -46,7 +46,7 @@ fn voter_list_no_admin_cant_vote() {
 }
 
 #[test]
-fn ensure_admin_auth_is_checked_adding_voters() {
+fn admin_auth_is_checked_adding_voters() {
     let (env, client, admin) = prepare_env_and_client();
 
     env.mock_all_auths();
@@ -68,7 +68,7 @@ fn ensure_admin_auth_is_checked_adding_voters() {
 }
 
 #[test]
-fn prd_creation_and_query() {
+fn proposal_creation_and_query() {
     let (env, client, admin) = prepare_env_and_client();
 
     env.mock_all_auths();
@@ -92,7 +92,7 @@ fn prd_creation_and_query() {
         )]
     );
 
-    let state = client.prd_status(&id);
+    let state = client.proposal(&id);
 
     assert_eq!(
         Proposal {
@@ -109,13 +109,13 @@ fn prd_creation_and_query() {
 
 #[test]
 #[should_panic(expected = "NotAuthorized")]
-fn only_admin_can_create_prds() {
+fn only_admin_can_create_proposals() {
     let (_, client, _) = prepare_env_and_client();
     client.create_prd(&1);
 }
 
 #[test]
-fn voter_can_vote_prds() {
+fn voter_can_vote_proposals() {
     let (env, client, _) = prepare_env_and_client();
     env.mock_all_auths();
 
@@ -126,9 +126,9 @@ fn voter_can_vote_prds() {
     let id = 12;
 
     client.create_prd(&id);
-    client.prd_vote(&client.address, &id, &2);
+    client.vote(&client.address, &id, &2);
 
-    let state = client.prd_status(&id);
+    let state = client.proposal(&id);
 
     let mut expected_voters = Map::<Address, bool>::new(&env);
     expected_voters.set(client.address, true);
@@ -148,7 +148,7 @@ fn voter_can_vote_prds() {
 
 #[test]
 #[should_panic(expected = "ContractError(4)")]
-fn voter_cannot_vote_a_prd_twice() {
+fn voter_cannot_vote_a_proposal_twice() {
     let (env, client, _) = prepare_env_and_client();
     env.mock_all_auths();
 
@@ -159,8 +159,8 @@ fn voter_cannot_vote_a_prd_twice() {
     let prd_id = 12;
 
     client.create_prd(&prd_id);
-    client.prd_vote(&client.address, &prd_id, &1);
-    client.prd_vote(&client.address, &prd_id, &1); // Double voting here. Expected panic.
+    client.vote(&client.address, &prd_id, &1);
+    client.vote(&client.address, &prd_id, &1); // Double voting here. Expected panic.
 }
 
 #[test]
@@ -176,7 +176,7 @@ fn not_in_voter_list_address_cant_vote() {
     let prd_id = 12;
 
     client.create_prd(&prd_id);
-    client.prd_vote(&client.address, &prd_id, &1);
+    client.vote(&client.address, &prd_id, &1);
 }
 
 #[test]
@@ -192,5 +192,5 @@ fn voter_cannot_vote_more_than_its_total_weight() {
     let prd_id = 12;
 
     client.create_prd(&prd_id);
-    client.prd_vote(&client.address, &prd_id, &3); // Exceeding weight of 2 should panic.
+    client.vote(&client.address, &prd_id, &3); // Exceeding weight of 2 should panic.
 }

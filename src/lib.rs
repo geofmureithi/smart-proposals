@@ -34,7 +34,7 @@ pub enum Status {
 pub enum DataKey {
     VoterList = 0,
     Admin = 1,
-    PRDStorage = 2,
+    ProposalStorage = 2,
 }
 
 pub struct ProposalContract;
@@ -46,7 +46,7 @@ impl ProposalContract {
         env.storage()
             .set(&DataKey::VoterList, &Map::<Address, u32>::new(&env));
         env.storage().set(
-            &DataKey::PRDStorage,
+            &DataKey::ProposalStorage,
             &Map::<u64, (Status, i64, Map<Address, bool>)>::new(&env),
         )
     }
@@ -78,6 +78,10 @@ impl ProposalContract {
     }
 
     pub fn create_prd(env: Env, id: u64) -> Result<(), Error> {
+        Self::create_proposal(env, id, ProposalKind::PRD, 0)
+    }
+
+    fn create_proposal(env: Env, id: u64, kind: ProposalKind, parent: u64) -> Result<(), Error> {
         env.storage()
             .get::<_, Address>(&DataKey::Admin)
             .ok_or(Error::KeyExpected)??
@@ -85,35 +89,35 @@ impl ProposalContract {
 
         let mut storage = env
             .storage()
-            .get::<_, Map<u64, Proposal>>(&DataKey::PRDStorage)
+            .get::<_, Map<u64, Proposal>>(&DataKey::ProposalStorage)
             .ok_or(Error::KeyExpected)??;
 
         storage.set(
             id,
             Proposal {
                 id,
-                kind: ProposalKind::PRD,
-                parent: 0,
+                kind,
+                parent,
                 status: Status::OpenVoting,
                 votes: 0,
                 voters: Map::<Address, bool>::new(&env),
             },
         );
 
-        env.storage().set(&DataKey::PRDStorage, &storage);
+        env.storage().set(&DataKey::ProposalStorage, &storage);
         Ok(())
     }
 
-    pub fn prd_status(env: Env, id: u64) -> Result<Proposal, Error> {
+    pub fn proposal(env: Env, id: u64) -> Result<Proposal, Error> {
         Ok(env
             .storage()
-            .get::<_, Map<u64, Proposal>>(&DataKey::PRDStorage)
+            .get::<_, Map<u64, Proposal>>(&DataKey::ProposalStorage)
             .ok_or(Error::KeyExpected)??
             .get(id)
             .ok_or(Error::NotFound)??)
     }
 
-    pub fn prd_vote(env: Env, voter: Address, id: u64, weight: i32) -> Result<(), Error> {
+    pub fn vote(env: Env, voter: Address, id: u64, weight: i32) -> Result<(), Error> {
         voter.require_auth();
 
         let voter_list = env
@@ -131,7 +135,7 @@ impl ProposalContract {
 
         let mut proposal_storage = env
             .storage()
-            .get::<_, Map<u64, Proposal>>(&DataKey::PRDStorage)
+            .get::<_, Map<u64, Proposal>>(&DataKey::ProposalStorage)
             .ok_or(Error::KeyExpected)??;
 
         let mut proposal_state = proposal_storage.get(id).ok_or(Error::NotFound)??;
@@ -148,7 +152,8 @@ impl ProposalContract {
         proposal_state.voters.set(voter, true);
         proposal_storage.set(id, proposal_state);
 
-        env.storage().set(&DataKey::PRDStorage, &proposal_storage);
+        env.storage()
+            .set(&DataKey::ProposalStorage, &proposal_storage);
         Ok(())
     }
 }
@@ -158,7 +163,7 @@ impl ProposalContract {
 pub struct Proposal {
     id: u64,
     kind: ProposalKind,
-    // Parent "0" means no parent. 
+    // Parent "0" means no parent.
     parent: u64,
     status: Status,
     votes: i64,
