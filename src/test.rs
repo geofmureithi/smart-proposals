@@ -5,7 +5,7 @@ use soroban_sdk::{testutils::Address as _, Address, Env, IntoVal, Map, Symbol};
 
 #[test]
 fn voters_add_and_retrieve_works() {
-    let (env, client, _) = prepare_env_and_client();
+    let (env, client, _) = setup_test();
 
     env.mock_all_auths();
 
@@ -25,7 +25,7 @@ fn voters_add_and_retrieve_works() {
     );
 }
 
-fn prepare_env_and_client<'a>() -> (Env, ProposalContractClient<'a>, Address) {
+fn setup_test<'a>() -> (Env, ProposalContractClient<'a>, Address) {
     let env = Env::default();
     let contract_id = env.register_contract(None, ProposalContract);
     let client = ProposalContractClient::new(&env, &contract_id);
@@ -38,7 +38,7 @@ fn prepare_env_and_client<'a>() -> (Env, ProposalContractClient<'a>, Address) {
 #[test]
 #[should_panic(expected = "NotAuthorized")]
 fn voter_list_no_admin_cant_vote() {
-    let (env, client, _) = prepare_env_and_client();
+    let (env, client, _) = setup_test();
 
     let mut voters = Map::<Address, u32>::new(&env);
     voters.set(Address::random(&env), 1);
@@ -47,7 +47,7 @@ fn voter_list_no_admin_cant_vote() {
 
 #[test]
 fn admin_auth_is_checked_adding_voters() {
-    let (env, client, admin) = prepare_env_and_client();
+    let (env, client, admin) = setup_test();
 
     env.mock_all_auths();
 
@@ -69,7 +69,7 @@ fn admin_auth_is_checked_adding_voters() {
 
 #[test]
 fn proposal_creation_and_query() {
-    let (env, client, admin) = prepare_env_and_client();
+    let (env, client, admin) = setup_test();
 
     env.mock_all_auths();
 
@@ -110,13 +110,13 @@ fn proposal_creation_and_query() {
 #[test]
 #[should_panic(expected = "NotAuthorized")]
 fn only_admin_can_create_proposals() {
-    let (_, client, _) = prepare_env_and_client();
+    let (_, client, _) = setup_test();
     client.create_prd(&1);
 }
 
 #[test]
 fn voter_can_vote_proposals() {
-    let (env, client, _) = prepare_env_and_client();
+    let (env, client, _) = setup_test();
     env.mock_all_auths();
 
     let mut voters = Map::<Address, u32>::new(&env);
@@ -149,7 +149,7 @@ fn voter_can_vote_proposals() {
 #[test]
 #[should_panic(expected = "ContractError(4)")]
 fn voter_cannot_vote_a_proposal_twice() {
-    let (env, client, _) = prepare_env_and_client();
+    let (env, client, _) = setup_test();
     env.mock_all_auths();
 
     let mut voters = Map::<Address, u32>::new(&env);
@@ -166,7 +166,7 @@ fn voter_cannot_vote_a_proposal_twice() {
 #[test]
 #[should_panic(expected = "ContractError(5)")]
 fn not_in_voter_list_address_cant_vote() {
-    let (env, client, _) = prepare_env_and_client();
+    let (env, client, _) = setup_test();
     env.mock_all_auths();
 
     let mut voters = Map::<Address, u32>::new(&env);
@@ -182,7 +182,7 @@ fn not_in_voter_list_address_cant_vote() {
 #[test]
 #[should_panic(expected = "ContractError(6)")]
 fn voter_cannot_vote_more_than_its_total_weight() {
-    let (env, client, _) = prepare_env_and_client();
+    let (env, client, _) = setup_test();
     env.mock_all_auths();
 
     let mut voters = Map::<Address, u32>::new(&env);
@@ -197,7 +197,7 @@ fn voter_cannot_vote_more_than_its_total_weight() {
 
 #[test]
 fn rfc_proposal_creation() {
-    let (env, client, admin) = prepare_env_and_client();
+    let (env, client, admin) = setup_test();
     env.mock_all_auths();
 
 
