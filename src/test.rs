@@ -192,7 +192,7 @@ fn not_in_voter_list_address_cant_vote() {
 
 #[test]
 #[should_panic(expected = "ContractError(6)")]
-fn voter_cannot_vote_more_than_its_total_weight() {
+fn voter_cannot_vote_more_than_its_total_weight_upper_bound() {
     let (env, client, _) = setup_test();
     env.mock_all_auths();
 
@@ -204,6 +204,22 @@ fn voter_cannot_vote_more_than_its_total_weight() {
 
     client.create_prd(&prd_id);
     client.vote(&client.address, &prd_id, &3); // Exceeding weight of 2 should panic.
+}
+
+#[test]
+#[should_panic(expected = "ContractError(6)")]
+fn voter_cannot_vote_more_than_its_total_weight_lower_bound() {
+    let (env, client, _) = setup_test();
+    env.mock_all_auths();
+
+    let mut voters = Map::<Address, u32>::new(&env);
+    voters.set(client.address.clone(), 2);
+    client.add_voters(&voters);
+
+    let prd_id = 12;
+
+    client.create_prd(&prd_id);
+    client.vote(&client.address, &prd_id, &-3); // Exceeding weight of 2 should panic.
 }
 
 #[test]
