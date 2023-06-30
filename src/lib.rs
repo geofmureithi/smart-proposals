@@ -146,7 +146,7 @@ impl ProposalContract {
             .get(voter.clone())
             .ok_or(Error::NotInVoterList)??;
 
-        if weight.abs() as u32 > voter_weight {
+        if weight.unsigned_abs() > voter_weight {
             return Err(Error::WeightExceeded);
         }
 
