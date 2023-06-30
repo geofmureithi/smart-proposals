@@ -97,6 +97,7 @@ fn prd_creation_and_query() {
     assert_eq!(
         Proposal {
             id,
+            kind: crate::ProposalKind::PRD,
             status: Status::OpenVoting,
             votes: 0,
             voters: Map::<Address, bool>::new(&env)
@@ -134,6 +135,7 @@ fn voter_can_vote_prds() {
     assert_eq!(
         Proposal {
             id,
+            kind: crate::ProposalKind::PRD,
             status: Status::OpenVoting,
             votes: 2,
             voters: expected_voters

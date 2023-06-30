@@ -92,6 +92,7 @@ impl ProposalContract {
             id,
             Proposal {
                 id,
+                kind: ProposalKind::PRD,
                 status: Status::OpenVoting,
                 votes: 0,
                 voters: Map::<Address, bool>::new(&env),
@@ -155,9 +156,18 @@ impl ProposalContract {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Proposal {
     id: u64,
+    kind: ProposalKind,
     status: Status,
     votes: i64,
     voters: Map<Address, bool>,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+#[repr(u32)]
+pub enum ProposalKind {
+    PRD,
+    RFC,
 }
 
 #[cfg(test)]
