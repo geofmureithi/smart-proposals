@@ -9,7 +9,7 @@ pub enum Error {
     Conversion = 1,
     KeyExpected = 2,
     NotFound = 3,
-    Conflict = 4,
+    AlreadyVoted = 4,
     NotInVoterList = 5,
     WeightExceeded = 6,
 }
@@ -136,7 +136,7 @@ impl ProposalContract {
         let mut proposal_state = proposal_storage.get(id).ok_or(Error::NotFound)??;
 
         if proposal_state.voters.get(voter.clone()).is_some() {
-            return Err(Error::Conflict);
+            return Err(Error::AlreadyVoted);
         }
 
         proposal_state.votes = proposal_state
