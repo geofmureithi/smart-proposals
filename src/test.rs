@@ -98,6 +98,7 @@ fn prd_creation_and_query() {
         Proposal {
             id,
             kind: crate::ProposalKind::PRD,
+            parent: 0,
             status: Status::OpenVoting,
             votes: 0,
             voters: Map::<Address, bool>::new(&env)
@@ -136,6 +137,7 @@ fn voter_can_vote_prds() {
         Proposal {
             id,
             kind: crate::ProposalKind::PRD,
+            parent: 0,
             status: Status::OpenVoting,
             votes: 2,
             voters: expected_voters

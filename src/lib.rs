@@ -93,6 +93,7 @@ impl ProposalContract {
             Proposal {
                 id,
                 kind: ProposalKind::PRD,
+                parent: 0,
                 status: Status::OpenVoting,
                 votes: 0,
                 voters: Map::<Address, bool>::new(&env),
@@ -157,6 +158,8 @@ impl ProposalContract {
 pub struct Proposal {
     id: u64,
     kind: ProposalKind,
+    // Parent "0" means no parent. 
+    parent: u64,
     status: Status,
     votes: i64,
     voters: Map<Address, bool>,
