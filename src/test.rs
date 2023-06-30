@@ -108,6 +108,17 @@ fn proposal_creation_and_query() {
 }
 
 #[test]
+#[should_panic(expected = "ContractError(7)")]
+fn cannot_create_same_id_proposals() {
+    let (env, client, _) = setup_test();
+    env.mock_all_auths();
+
+    let id = 1001u64;
+    client.create_prd(&id);
+    client.create_prd(&id);
+}
+
+#[test]
 #[should_panic(expected = "NotAuthorized")]
 fn only_admin_can_create_proposals() {
     let (_, client, _) = setup_test();
@@ -199,7 +210,6 @@ fn voter_cannot_vote_more_than_its_total_weight() {
 fn rfc_proposal_creation() {
     let (env, client, admin) = setup_test();
     env.mock_all_auths();
-
 
     let prd_id = 1001u64;
     client.create_prd(&prd_id); // First we need a PRD.

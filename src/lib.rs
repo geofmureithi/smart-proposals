@@ -12,6 +12,7 @@ pub enum Error {
     AlreadyVoted = 4,
     NotInVoterList = 5,
     WeightExceeded = 6,
+    DuplicatedEntity = 7,
 }
 
 impl From<ConversionError> for Error {
@@ -86,7 +87,7 @@ impl ProposalContract {
     }
 
     fn create_proposal(env: Env, id: u64, kind: ProposalKind, parent: u64) -> Result<(), Error> {
-        env.storage()   
+        env.storage()
             .get::<_, Address>(&DataKey::Admin)
             .ok_or(Error::KeyExpected)??
             .require_auth();
@@ -95,6 +96,10 @@ impl ProposalContract {
             .storage()
             .get::<_, Map<u64, Proposal>>(&DataKey::ProposalStorage)
             .ok_or(Error::KeyExpected)??;
+
+        if storage.contains_key(id) {
+            return Err(Error::DuplicatedEntity);
+        }
 
         storage.set(
             id,
