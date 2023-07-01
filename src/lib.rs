@@ -24,15 +24,6 @@ impl From<ConversionError> for Error {
 }
 
 #[contracttype]
-#[derive(Clone, Debug, Copy, Eq, PartialEq, PartialOrd, Ord)]
-#[repr(u32)]
-pub enum Status {
-    OpenVoting = 1,
-    Approved = 2,
-    Rejected = 3,
-}
-
-#[contracttype]
 #[derive(Clone, Copy)]
 pub enum DataKey {
     VoterList = 0,
@@ -50,7 +41,7 @@ impl ProposalContract {
             .set(&DataKey::VoterList, &Map::<Address, u32>::new(&env));
         env.storage().set(
             &DataKey::ProposalStorage,
-            &Map::<u64, (Status, i64, Map<Address, bool>)>::new(&env),
+            &Map::<u64, (i64, Map<Address, bool>)>::new(&env),
         )
     }
 
@@ -116,7 +107,6 @@ impl ProposalContract {
                 id,
                 kind,
                 parent,
-                status: Status::OpenVoting,
                 votes: 0,
                 voters: Map::<Address, bool>::new(&env),
             },
