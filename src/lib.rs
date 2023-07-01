@@ -14,6 +14,7 @@ pub enum Error {
     WeightExceeded = 6,
     DuplicatedEntity = 7,
     ParentNotPRD = 8,
+    Overflow = 9,
 }
 
 impl From<ConversionError> for Error {
@@ -184,7 +185,11 @@ impl Proposal {
         if self.voters.get(voter.clone()).is_some() {
             return Err(Error::AlreadyVoted);
         }
-        self.votes = self.votes.checked_add(points as i64).expect("overflow");
+        self.votes = self
+            .votes
+            .checked_add(points as i64)
+            .ok_or(Error::Overflow)?;
+
         self.voters.set(voter, true);
         Ok(())
     }
