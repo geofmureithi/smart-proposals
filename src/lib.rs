@@ -15,6 +15,7 @@ pub enum Error {
     DuplicatedEntity = 7,
     ParentNotPRD = 8,
     Overflow = 9,
+    VotingClosed = 10,
 }
 
 impl From<ConversionError> for Error {
@@ -71,15 +72,26 @@ impl ProposalContract {
             .ok_or(Error::KeyExpected)??
     }
 
-    pub fn create_prd(env: Env, id: u64) -> Result<(), Error> {
-        Self::create_proposal(env, id, ProposalKind::PRD, 0)
+    pub fn create_prd(env: Env, id: u64, voting_period_secs: u64) -> Result<(), Error> {
+        Self::create_proposal(env, id, ProposalKind::PRD, 0, voting_period_secs)
     }
 
-    pub fn create_rfc(env: Env, prd_id: u64, id: u64) -> Result<(), Error> {
-        Self::create_proposal(env, id, ProposalKind::RFC, prd_id)
+    pub fn create_rfc(
+        env: Env,
+        prd_id: u64,
+        id: u64,
+        voting_period_secs: u64,
+    ) -> Result<(), Error> {
+        Self::create_proposal(env, id, ProposalKind::RFC, prd_id, voting_period_secs)
     }
 
-    fn create_proposal(env: Env, id: u64, kind: ProposalKind, parent: u64) -> Result<(), Error> {
+    fn create_proposal(
+        env: Env,
+        id: u64,
+        kind: ProposalKind,
+        parent: u64,
+        voting_period_secs: u64,
+    ) -> Result<(), Error> {
         env.storage()
             .get::<_, Address>(&DataKey::Admin)
             .ok_or(Error::KeyExpected)??
@@ -106,6 +118,7 @@ impl ProposalContract {
             Proposal {
                 id,
                 kind,
+                voting_end_time: env.ledger().timestamp() + voting_period_secs,
                 parent,
                 votes: 0,
                 voters: Map::<Address, bool>::new(&env),
@@ -148,7 +161,7 @@ impl ProposalContract {
 
         let mut proposal = proposal_storage.get(id).ok_or(Error::NotFound)??;
 
-        proposal.vote(voter, weight)?;
+        proposal.vote(env.ledger().timestamp(), voter, weight)?;
 
         proposal_storage.set(id, proposal);
 
@@ -163,15 +176,20 @@ impl ProposalContract {
 pub struct Proposal {
     id: u64,
     kind: ProposalKind,
+    // Unix time in seconds. Voting ends at this time.
+    voting_end_time: u64,
     // Parent "0" means no parent.
     parent: u64,
-    status: Status,
     votes: i64,
     voters: Map<Address, bool>,
 }
 
 impl Proposal {
-    pub fn vote(&mut self, voter: Address, points: i32) -> Result<(), Error> {
+    pub fn vote(&mut self, current_time: u64, voter: Address, points: i32) -> Result<(), Error> {
+        if current_time >= self.voting_end_time {
+            return Err(Error::VotingClosed);
+        }
+
         if self.voters.get(voter.clone()).is_some() {
             return Err(Error::AlreadyVoted);
         }

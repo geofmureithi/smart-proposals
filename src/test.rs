@@ -1,7 +1,10 @@
 #![cfg(test)]
 
-use crate::{Proposal, ProposalContract, ProposalContractClient, Status};
-use soroban_sdk::{testutils::Address as _, Address, Env, IntoVal, Map, Symbol};
+use crate::{Error, Proposal, ProposalContract, ProposalContractClient};
+use soroban_sdk::{
+    testutils::{Address as _, Ledger},
+    Address, Env, IntoVal, Map, Symbol,
+};
 
 #[test]
 fn voters_add_and_retrieve_works() {
@@ -80,7 +83,7 @@ fn proposal_creation_and_query() {
     client.add_voters(&voters);
 
     let id = 1001u64;
-    client.create_prd(&id);
+    client.create_prd(&id, &3600);
 
     assert_eq!(
         env.auths(),
@@ -88,7 +91,7 @@ fn proposal_creation_and_query() {
             admin,
             client.address.clone(),
             Symbol::new(&env, "create_prd"),
-            (1001u64,).into_val(&env)
+            (1001u64, 3600u64).into_val(&env)
         )]
     );
 
@@ -98,8 +101,8 @@ fn proposal_creation_and_query() {
         Proposal {
             id,
             kind: crate::ProposalKind::PRD,
+            voting_end_time: env.ledger().timestamp() + 3600,
             parent: 0,
-            status: Status::OpenVoting,
             votes: 0,
             voters: Map::<Address, bool>::new(&env)
         },
@@ -114,15 +117,15 @@ fn cannot_create_same_id_proposals() {
     env.mock_all_auths();
 
     let id = 1001u64;
-    client.create_prd(&id);
-    client.create_prd(&id);
+    client.create_prd(&id, &3600);
+    client.create_prd(&id, &3600);
 }
 
 #[test]
 #[should_panic(expected = "NotAuthorized")]
 fn only_admin_can_create_proposals() {
     let (_, client, _) = setup_test();
-    client.create_prd(&1);
+    client.create_prd(&1, &3600);
 }
 
 #[test]
@@ -136,7 +139,7 @@ fn voter_can_vote_proposals() {
 
     let id = 12;
 
-    client.create_prd(&id);
+    client.create_prd(&id, &3600);
     client.vote(&client.address, &id, &2);
 
     let state = client.proposal(&id);
@@ -148,8 +151,8 @@ fn voter_can_vote_proposals() {
         Proposal {
             id,
             kind: crate::ProposalKind::PRD,
+            voting_end_time: env.ledger().timestamp() + 3600,
             parent: 0,
-            status: Status::OpenVoting,
             votes: 2,
             voters: expected_voters
         },
@@ -169,7 +172,7 @@ fn voter_cannot_vote_a_proposal_twice() {
 
     let prd_id = 12;
 
-    client.create_prd(&prd_id);
+    client.create_prd(&prd_id, &3600);
     client.vote(&client.address, &prd_id, &1);
     client.vote(&client.address, &prd_id, &1); // Double voting here. Expected panic.
 }
@@ -186,7 +189,7 @@ fn not_in_voter_list_address_cant_vote() {
 
     let prd_id = 12;
 
-    client.create_prd(&prd_id);
+    client.create_prd(&prd_id, &3600);
     client.vote(&client.address, &prd_id, &1);
 }
 
@@ -202,7 +205,7 @@ fn voter_cannot_vote_more_than_its_total_weight_upper_bound() {
 
     let prd_id = 12;
 
-    client.create_prd(&prd_id);
+    client.create_prd(&prd_id, &3600);
     client.vote(&client.address, &prd_id, &3); // Exceeding weight of 2 should panic.
 }
 
@@ -218,7 +221,7 @@ fn voter_cannot_vote_more_than_its_total_weight_lower_bound() {
 
     let prd_id = 12;
 
-    client.create_prd(&prd_id);
+    client.create_prd(&prd_id, &3600);
     client.vote(&client.address, &prd_id, &-3); // Exceeding weight of 2 should panic.
 }
 
@@ -228,12 +231,12 @@ fn rfc_proposal_creation() {
     env.mock_all_auths();
 
     let prd_id = 1001u64;
-    client.create_prd(&prd_id); // First we need a PRD.
+    client.create_prd(&prd_id, &3600); // First we need a PRD.
 
     let mut capture_auths = env.auths();
     let rfc_id = 1002u64;
 
-    client.create_rfc(&prd_id, &rfc_id);
+    client.create_rfc(&prd_id, &rfc_id, &3600);
     capture_auths.append(&mut env.auths());
 
     let state = client.proposal(&rfc_id);
@@ -244,13 +247,13 @@ fn rfc_proposal_creation() {
                 admin.clone(),
                 client.address.clone(),
                 Symbol::new(&env, "create_prd"),
-                (1001u64,).into_val(&env)
+                (1001u64, 3600u64).into_val(&env)
             ),
             (
                 admin.clone(),
                 client.address.clone(),
                 Symbol::new(&env, "create_rfc"),
-                (1001u64, 1002u64).into_val(&env)
+                (1001u64, 1002u64, 3600u64).into_val(&env)
             )
         ]
     );
@@ -259,8 +262,8 @@ fn rfc_proposal_creation() {
         Proposal {
             id: rfc_id,
             kind: crate::ProposalKind::RFC,
+            voting_end_time: env.ledger().timestamp() + 3600,
             parent: prd_id,
-            status: Status::OpenVoting,
             votes: 0,
             voters: Map::<Address, bool>::new(&env)
         },
@@ -275,7 +278,7 @@ fn cannot_create_an_rfc_with_non_existing_parent_prd() {
     env.mock_all_auths();
 
     let id = 1001u64;
-    client.create_rfc(&id, &1);
+    client.create_rfc(&id, &1, &3600);
 }
 
 #[test]
@@ -284,7 +287,33 @@ fn no_prd_proposals_cannot_be_parent() {
     let (env, client, _) = setup_test();
     env.mock_all_auths();
 
-    client.create_prd(&1);
-    client.create_rfc(&1, &2);
-    client.create_rfc(&2, &3); // Here we passed the id of an RFC, not a PRD. This should panic.
+    client.create_prd(&1, &3600);
+    client.create_rfc(&1, &2, &3600);
+    client.create_rfc(&2, &3, &3600); // Here we passed the id of an RFC, not a PRD. This should panic.
+}
+
+#[test]
+fn cannot_vote_if_voting_time_exceeded() {
+    let (mut env, _, _) = setup_test();
+
+    let mut proposal = Proposal {
+        id: 1,
+        kind: crate::ProposalKind::PRD,
+        voting_end_time: env.ledger().timestamp() + 3600,
+        parent: 0,
+        votes: 0,
+        voters: Map::<Address, bool>::new(&env),
+    };
+
+    advance_ledger_time_in(3600, &mut env);
+
+    let result = proposal.vote(env.ledger().timestamp(), Address::random(&env), 1);
+
+    assert_eq!(Err(Error::VotingClosed), result)
+}
+
+fn advance_ledger_time_in(time: u64, env: &mut Env) {
+    let mut ledger_info = env.ledger().get();
+    ledger_info.timestamp = ledger_info.timestamp + time;
+    env.ledger().set(ledger_info)
 }
