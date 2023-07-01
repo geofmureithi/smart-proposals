@@ -157,17 +157,8 @@ impl ProposalContract {
 
         let mut proposal = proposal_storage.get(id).ok_or(Error::NotFound)??;
 
-        if proposal.voters.get(voter.clone()).is_some() {
-            return Err(Error::AlreadyVoted);
-        }
+        proposal.vote(voter, weight)?;
 
-        proposal.votes = proposal
-            .votes
-            .checked_add(weight as i64)
-            .expect("overflow");
-
-        proposal.voters.set(voter, true);
-        
         proposal_storage.set(id, proposal);
 
         env.storage()
@@ -186,6 +177,17 @@ pub struct Proposal {
     status: Status,
     votes: i64,
     voters: Map<Address, bool>,
+}
+
+impl Proposal {
+    pub fn vote(&mut self, voter: Address, points: i32) -> Result<(), Error> {
+        if self.voters.get(voter.clone()).is_some() {
+            return Err(Error::AlreadyVoted);
+        }
+        self.votes = self.votes.checked_add(points as i64).expect("overflow");
+        self.voters.set(voter, true);
+        Ok(())
+    }
 }
 
 #[contracttype]
