@@ -155,19 +155,20 @@ impl ProposalContract {
             .get::<_, Map<u64, Proposal>>(&DataKey::ProposalStorage)
             .ok_or(Error::KeyExpected)??;
 
-        let mut proposal_state = proposal_storage.get(id).ok_or(Error::NotFound)??;
+        let mut proposal = proposal_storage.get(id).ok_or(Error::NotFound)??;
 
-        if proposal_state.voters.get(voter.clone()).is_some() {
+        if proposal.voters.get(voter.clone()).is_some() {
             return Err(Error::AlreadyVoted);
         }
 
-        proposal_state.votes = proposal_state
+        proposal.votes = proposal
             .votes
             .checked_add(weight as i64)
             .expect("overflow");
 
-        proposal_state.voters.set(voter, true);
-        proposal_storage.set(id, proposal_state);
+        proposal.voters.set(voter, true);
+        
+        proposal_storage.set(id, proposal);
 
         env.storage()
             .set(&DataKey::ProposalStorage, &proposal_storage);
